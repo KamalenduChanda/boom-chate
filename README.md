@@ -1,1 +1,511 @@
-# boom-chate
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom scrollbar for webkit browsers */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b; /* slate-800 */
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569; /* slate-600 */
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #64748b; /* slate-500 */
+        }
+        body {
+            font-family: 'Inter', sans-serif; /* Assuming Inter is a common fallback, or use system fonts */
+        }
+        .shadow-up {
+            box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .break-words {
+            word-break: break-word;
+        }
+        /* Ensure Inter font is loaded if available, or use a common sans-serif */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+    </head>
+<body class="bg-slate-900 text-white">
+
+    <div id="loading-state" class="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white p-4">
+        <svg class="animate-spin h-10 w-10 text-sky-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p id="loading-message" class="text-xl">Initializing...</p>
+    </div>
+
+    <div id="error-state" class="hidden flex-col items-center justify-center min-h-screen bg-red-900 text-white p-6">
+        <h2 class="text-2xl font-bold mb-4">Application Error</h2>
+        <p id="error-message-text" class="text-center mb-2">An error occurred.</p>
+        <p class="text-sm text-red-300">Please try refreshing the page. If the issue persists, contact support.</p>
+    </div>
+
+    <div id="user-setup-section" class="hidden flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-4 text-white">
+        <div class="w-full max-w-md p-8 bg-slate-800 rounded-xl shadow-2xl space-y-6">
+            <h1 class="text-4xl font-bold text-center text-sky-400">Welcome to ChatApp</h1>
+            <p class="text-center text-slate-400">Choose your identity to join the conversation.</p>
+
+            <p id="user-setup-error" class="hidden text-red-400 text-sm bg-red-900/50 p-3 rounded-md text-center"></p>
+
+            <div>
+                <label for="username-input" class="block text-sm font-medium text-slate-300 mb-1">Username</label>
+                <input id="username-input" type="text" placeholder="Enter your username"
+                    class="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-colors"
+                    maxlength="20">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-2">Choose your color</label>
+                <div id="color-picker-container" class="grid grid-cols-5 sm:grid-cols-6 gap-2">
+                    </div>
+            </div>
+
+            <button id="join-chat-button"
+                class="w-full py-3 px-6 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-opacity-75">
+                Join Chat
+            </button>
+        </div>
+        <p class="mt-8 text-xs text-slate-500">App ID: <span id="app-id-display-setup"></span></p>
+    </div>
+
+    <div id="chat-room-section" class="hidden flex flex-col h-screen bg-slate-800 text-white">
+        <header class="bg-slate-900 p-4 shadow-md flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-semibold text-sky-400">Chat Room</h1>
+                <p class="text-xs text-slate-400">Welcome, <span id="chat-username" class="font-semibold">User</span>! Your ID: <span id="chat-user-id" class="font-mono"></span></p>
+            </div>
+            <button id="leave-chat-button"
+                class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg shadow transition-colors">
+                Leave Chat
+            </button>
+        </header>
+
+        <main id="messages-area" class="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-800 custom-scrollbar">
+            <p id="chat-room-error" class="hidden text-red-400 text-sm bg-red-900/50 p-2 rounded-md text-center sticky top-2 z-10"></p>
+            <div id="messages-end-ref" class="h-1"></div>
+        </main>
+
+        <footer class="bg-slate-900 p-3 sm:p-4 shadow-up">
+            <div id="image-preview-area" class="hidden mb-2 p-2 bg-slate-700 rounded-md flex items-center justify-between">
+                <p id="image-preview-name" class="text-sm text-slate-300 truncate"></p>
+                <button id="clear-image-button" class="text-red-400 hover:text-red-300 text-xs">Clear</button>
+            </div>
+            <div class="flex items-center space-x-2">
+                <input type="file" accept="image/*" id="image-upload-input" class="hidden">
+                <label for="image-upload-input" id="image-upload-label"
+                    class="p-3 rounded-lg cursor-pointer transition-colors bg-slate-700 hover:bg-slate-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                </label>
+                <textarea id="new-message-input" placeholder="Type your message... (Shift+Enter for new line)"
+                    class="flex-1 p-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-1 focus:ring-sky-500 focus:border-sky-500 outline-none resize-none"
+                    rows="1" style="max-height: 80px; overflow-y: auto;"></textarea>
+                <button id="send-message-button"
+                    class="p-3 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-lg shadow transition-colors disabled:bg-sky-800 disabled:cursor-not-allowed">
+                    <svg id="send-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                    <svg id="loading-spinner-send" class="hidden animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </button>
+            </div>
+            <p class="text-xs text-slate-500 mt-2 text-center">
+                Messages older than 24 hours are automatically deleted. Storage limit info: precise 1GB cap is hard to enforce client-side.
+            </p>
+        </footer>
+    </div>
+
+    <script type="module">
+        // --- DOM Elements ---
+        const loadingStateDiv = document.getElementById('loading-state');
+        const loadingMessageP = document.getElementById('loading-message');
+        const errorStateDiv = document.getElementById('error-state');
+        const errorMessageTextP = document.getElementById('error-message-text');
+        
+        const userSetupSection = document.getElementById('user-setup-section');
+        const userSetupErrorP = document.getElementById('user-setup-error');
+        const usernameInput = document.getElementById('username-input');
+        const colorPickerContainer = document.getElementById('color-picker-container');
+        const joinChatButton = document.getElementById('join-chat-button');
+
+        const chatRoomSection = document.getElementById('chat-room-section');
+        const chatUsernameSpan = document.getElementById('chat-username');
+        const chatUserIdSpan = document.getElementById('chat-user-id');
+        const leaveChatButton = document.getElementById('leave-chat-button');
+        const messagesArea = document.getElementById('messages-area');
+        const chatRoomErrorP = document.getElementById('chat-room-error');
+        const messagesEndRef = document.getElementById('messages-end-ref');
+        
+        const imagePreviewArea = document.getElementById('image-preview-area');
+        const imagePreviewNameP = document.getElementById('image-preview-name');
+        const clearImageButton = document.getElementById('clear-image-button');
+        const imageUploadInput = document.getElementById('image-upload-input');
+        const imageUploadLabel = document.getElementById('image-upload-label');
+        const newMessageInput = document.getElementById('new-message-input');
+        const sendMessageButton = document.getElementById('send-message-button');
+        const sendIcon = document.getElementById('send-icon');
+        const loadingSpinnerSend = document.getElementById('loading-spinner-send');
+
+        // --- App State ---
+        let currentUser = null; // { id, username, color }
+        let selectedColorHex = '';
+        let imageFile = null;
+        let isUploading = false;
+        let messages = [];
+
+        const COLORS = [
+            { name: 'Red', hex: '#EF4444' }, { name: 'Orange', hex: '#F97316' }, { name: 'Amber', hex: '#F59E0B' },
+            { name: 'Yellow', hex: '#EAB308' }, { name: 'Lime', hex: '#84CC16' }, { name: 'Green', hex: '#22C55E' },
+            { name: 'Emerald', hex: '#10B981' }, { name: 'Teal', hex: '#14B8A6' }, { name: 'Cyan', hex: '#06B6D4' },
+            { name: 'Sky', hex: '#0EA5E9' }, { name: 'Blue', hex: '#3B82F6' }, { name: 'Indigo', hex: '#6366F1' },
+            { name: 'Violet', hex: '#8B5CF6' }, { name: 'Purple', hex: '#A855F7' }, { name: 'Fuchsia', hex: '#D946EF' },
+            { name: 'Pink', hex: '#EC4899' }, { name: 'Rose', hex: '#F43F5E' },
+        ];
+
+        // --- UI Control Functions ---
+        function showLoadingState(message = "Loading...") {
+            loadingMessageP.textContent = message;
+            loadingStateDiv.classList.remove('hidden');
+            loadingStateDiv.classList.add('flex');
+            errorStateDiv.classList.add('hidden');
+            userSetupSection.classList.add('hidden');
+            chatRoomSection.classList.add('hidden');
+        }
+
+        function showErrorState(message) {
+            errorMessageTextP.textContent = message;
+            errorStateDiv.classList.remove('hidden');
+            errorStateDiv.classList.add('flex');
+            loadingStateDiv.classList.add('hidden');
+            userSetupSection.classList.add('hidden');
+            chatRoomSection.classList.add('hidden');
+        }
+
+        function showUserSetup() {
+            userSetupSection.classList.remove('hidden');
+            userSetupSection.classList.add('flex');
+            loadingStateDiv.classList.add('hidden');
+            errorStateDiv.classList.add('hidden');
+            chatRoomSection.classList.add('hidden');
+            document.getElementById('app-id-display-setup').textContent = generateId().substring(0,8); // Example App ID
+        }
+
+        function showChatRoom() {
+            chatRoomSection.classList.remove('hidden');
+            chatRoomSection.classList.add('flex');
+            loadingStateDiv.classList.add('hidden');
+            errorStateDiv.classList.add('hidden');
+            userSetupSection.classList.add('hidden');
+            chatUsernameSpan.textContent = currentUser.username;
+            chatUsernameSpan.style.color = currentUser.color;
+            chatUserIdSpan.textContent = currentUser.id;
+            //loadMessages(); // Implement if you have message persistence
+        }
+
+        function displayUserSetupError(message) {
+            userSetupErrorP.textContent = message;
+            userSetupErrorP.classList.remove('hidden');
+        }
+        function clearUserSetupError() {
+            userSetupErrorP.classList.add('hidden');
+        }
+         function displayChatRoomError(message) {
+            chatRoomErrorP.textContent = message;
+            chatRoomErrorP.classList.remove('hidden');
+        }
+        function clearChatRoomError() {
+            chatRoomErrorP.classList.add('hidden');
+        }
+
+
+        // --- User Setup Logic ---
+        function populateColorPicker() {
+            COLORS.forEach((color, index) => {
+                const button = document.createElement('button');
+                button.title = color.name;
+                button.style.backgroundColor = color.hex;
+                button.style.borderColor = color.hex; // Ensure border matches for consistency
+                button.classList.add('w-full', 'h-10', 'rounded-lg', 'border-2', 'transition-all', 'duration-150', 'ease-in-out', 'hover:opacity-80');
+                if (index === 0) { // Select the first color by default
+                    button.classList.add('ring-4', 'ring-offset-2', 'ring-offset-slate-800', 'ring-white', 'scale-110');
+                    selectedColorHex = color.hex;
+                }
+                button.addEventListener('click', () => {
+                    selectedColorHex = color.hex;
+                    // Update selection UI
+                    document.querySelectorAll('#color-picker-container button').forEach(btn => {
+                        btn.classList.remove('ring-4', 'ring-offset-2', 'ring-offset-slate-800', 'ring-white', 'scale-110');
+                        btn.innerHTML = ''; // Clear any checkmark
+                    });
+                    button.classList.add('ring-4', 'ring-offset-2', 'ring-offset-slate-800', 'ring-white', 'scale-110');
+                    button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mx-auto text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>`;
+                });
+                colorPickerContainer.appendChild(button);
+            });
+            // Add checkmark to the initially selected color
+             if (colorPickerContainer.firstChild) {
+                colorPickerContainer.firstChild.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mx-auto text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>`;
+            }
+        }
+
+        joinChatButton.addEventListener('click', () => {
+            const username = usernameInput.value.trim();
+            if (!username) {
+                displayUserSetupError('Username cannot be empty.');
+                return;
+            }
+            if (username.length > 20) {
+                displayUserSetupError('Username cannot exceed 20 characters.');
+                return;
+            }
+            clearUserSetupError();
+            currentUser = { id: generateId(), username: username, color: selectedColorHex };
+            //localStorage.setItem('currentUser', JSON.stringify(currentUser)); // Uncomment for persistence
+            showChatRoom();
+        });
+
+        function generateId() {
+            return Math.random().toString(36).substring(2, 10); // Shorter ID for display
+        }
+
+        function addMessageToChat(msg) {
+            renderMessage(msg);
+            scrollToBottom();
+        }
+        
+        // --- Chat Room Logic ---
+        function scrollToBottom() {
+            messagesEndRef.scrollIntoView({ behavior: "smooth" });
+        }
+
+        function renderMessage(msg) {
+            const isSender = msg.userId === currentUser.id;
+            const messageDate = new Date(msg.timestamp);
+
+            const messageWrapper = document.createElement('div');
+            messageWrapper.className = `flex mb-3 ${isSender ? 'justify-end' : 'justify-start'}`;
+
+            const messageBubble = document.createElement('div');
+            messageBubble.className = `max-w-xs lg:max-w-md px-4 py-2 rounded-xl shadow ${isSender ? 'bg-sky-500 text-white rounded-br-none' : 'bg-slate-700 text-slate-200 rounded-bl-none'}`;
+
+            if (!isSender) {
+                const usernameP = document.createElement('p');
+                usernameP.className = "text-xs font-semibold mb-0.5";
+                usernameP.style.color = msg.userColor || '#FFFFFF';
+                usernameP.textContent = msg.username || 'Anonymous';
+                messageBubble.appendChild(usernameP);
+            }
+
+            if (msg.text) {
+                const textP = document.createElement('p');
+                textP.className = "text-sm break-words";
+                textP.textContent = msg.text;
+                messageBubble.appendChild(textP);
+            }
+
+            if (msg.imageUrl) {
+                const link = document.createElement('a');
+                link.href = msg.imageUrl;
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+                link.className = "mt-1 block";
+
+                const img = document.createElement('img');
+                img.src = msg.imageUrl;
+                img.alt = "Shared content";
+                img.className = "max-w-full h-auto rounded-lg border border-slate-600 cursor-pointer hover:opacity-80 transition-opacity";
+                img.onerror = (e) => { e.target.onerror = null; e.target.src = "https://placehold.co/300x200/7f1d1d/ffffff?text=Image+Error"; };
+                link.appendChild(img);
+                messageBubble.appendChild(link);
+            }
+
+            const timeP = document.createElement('p');
+            timeP.className = `text-xs mt-1 ${isSender ? 'text-sky-200' : 'text-slate-400'} text-right`;
+            timeP.textContent = messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            messageBubble.appendChild(timeP);
+
+            messageWrapper.appendChild(messageBubble);
+            messagesArea.insertBefore(messageWrapper, messagesEndRef);
+        }
+        
+        async function handleSendMessage() {
+            const text = newMessageInput.value.trim();
+            if (!text && !imageFile) {
+                displayChatRoomError("Message or image cannot be empty.");
+                return;
+            }
+            clearChatRoomError();
+            isUploading = true;
+            sendMessageButton.disabled = true;
+            imageUploadInput.disabled = true;
+            imageUploadLabel.classList.add('bg-slate-600', 'cursor-not-allowed');
+            imageUploadLabel.classList.remove('hover:bg-slate-600');
+            sendIcon.classList.add('hidden');
+            loadingSpinnerSend.classList.remove('hidden');
+
+            let imageUrl = null;
+
+            try {
+                if (imageFile) {
+                    imageUrl = await storeImageLocally(imageFile);
+                }
+
+                const message = {
+                    text: text,
+                    imageUrl: imageUrl,
+                    username: currentUser.username,
+                    userColor: currentUser.color,
+                    userId: currentUser.id,
+                    timestamp: Date.now(),
+                };
+
+                messages.push(message);
+                addMessageToChat(message);
+                // No AI message to add
+
+                newMessageInput.value = '';
+                imageFile = null;
+                imageUploadInput.value = ''; // Reset file input
+                imagePreviewArea.classList.add('hidden');
+                
+            } catch (err) {
+                console.error("Error sending message:", err);
+                displayChatRoomError("Failed to send message. " + err.message);
+            } finally {
+                isUploading = false;
+                sendMessageButton.disabled = false;
+                imageUploadInput.disabled = false;
+                imageUploadLabel.classList.remove('bg-slate-600', 'cursor-not-allowed');
+                imageUploadLabel.classList.add('hover:bg-slate-600');
+                sendIcon.classList.remove('hidden');
+                loadingSpinnerSend.classList.add('hidden');
+                newMessageInput.style.height = 'auto'; // Reset height after sending
+            }
+        }
+
+        // Removed generateAiResponse function
+
+        function storeImageLocally(imageFile) { // This remains as it's for user image upload
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    resolve(e.target.result); // Data URL
+                };
+                reader.onerror = (error) => {
+                    reject(error);
+                };
+                reader.readAsDataURL(imageFile);
+            });
+        }
+
+        sendMessageButton.addEventListener('click', handleSendMessage);
+        newMessageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+            }
+        });
+        newMessageInput.addEventListener('input', () => {
+            newMessageInput.style.height = 'auto';
+            newMessageInput.style.height = (newMessageInput.scrollHeight) + 'px';
+             if (newMessageInput.value.trim() || imageFile) {
+                sendMessageButton.disabled = false;
+            } else {
+                sendMessageButton.disabled = true;
+            }
+        });
+
+
+        imageUploadInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                if (file.size > 5 * 1024 * 1024) { // 5MB limit
+                    displayChatRoomError("Image size should not exceed 5MB.");
+                    imageFile = null;
+                    imageUploadInput.value = '';
+                    imagePreviewArea.classList.add('hidden');
+                    sendMessageButton.disabled = !newMessageInput.value.trim();
+                    return;
+                }
+                clearChatRoomError();
+                imageFile = file;
+                imagePreviewNameP.textContent = `Selected: ${file.name}`;
+                imagePreviewArea.classList.remove('hidden');
+                sendMessageButton.disabled = false;
+            }
+        });
+
+        clearImageButton.addEventListener('click', () => {
+            imageFile = null;
+            imageUploadInput.value = '';
+            imagePreviewArea.classList.add('hidden');
+            sendMessageButton.disabled = !newMessageInput.value.trim();
+        });
+
+        leaveChatButton.addEventListener('click', () => {
+            //localStorage.removeItem('currentUser'); // Uncomment for persistence
+            currentUser = null;
+            messages = []; // Clear messages array
+            messagesArea.innerHTML = '<div id="messages-end-ref" class="h-1"></div>'; // Clear UI
+            showUserSetup();
+        });
+
+        function isLocalStorageAvailable() {
+            try {
+                const test = '__storage_test__';
+                localStorage.setItem(test, test);
+                localStorage.removeItem(test);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        // --- Initial Setup ---
+        function initializeApp() {
+            showLoadingState("Initializing App...");
+            populateColorPicker();
+
+            if (!isLocalStorageAvailable()) {
+                showErrorState("Local storage is not available. Chat functionality might be limited or not persist across sessions.");
+                // Optionally, proceed with limited functionality or guide user
+                // For now, we'll still try to show user setup
+                setTimeout(() => showUserSetup(), 1500); // Give user time to read error
+                return;
+            }
+            
+            // const storedUser = localStorage.getItem('currentUser');
+            // if (storedUser) {
+            //     currentUser = JSON.parse(storedUser);
+            //     // Potentially load messages if stored
+            //     showChatRoom();
+            // } else {
+            //     showUserSetup();
+            // }
+            // For this version, always start with user setup after removing AI
+             setTimeout(() => { // Simulate some loading
+                showUserSetup();
+                loadingStateDiv.classList.add('hidden');
+            }, 500);
+        }
+
+        initializeApp();
+
+    </script>
+</body>
+</html>
